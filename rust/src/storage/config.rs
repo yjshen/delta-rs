@@ -13,8 +13,6 @@ use url::Url;
 
 #[cfg(any(feature = "s3", feature = "s3-native-tls"))]
 use super::s3::{S3StorageBackend, S3StorageOptions};
-#[cfg(feature = "hdfs")]
-use datafusion_objectstore_hdfs::object_store::hdfs::HadoopFileSystem;
 #[cfg(any(feature = "s3", feature = "s3-native-tls"))]
 use object_store::aws::{AmazonS3Builder, AmazonS3ConfigKey};
 #[cfg(feature = "azure")]
@@ -28,6 +26,12 @@ use object_store::gcp::{GoogleCloudStorage, GoogleCloudStorageBuilder, GoogleCon
     feature = "azure"
 ))]
 use std::str::FromStr;
+#[cfg(feature = "hdfs")]
+use object_store_opendal::OpendalStore;
+#[cfg(feature = "hdfs")]
+use opendal::Operator;
+#[cfg(feature = "hdfs")]
+use crate::storage::config::ObjectStoreImpl::{Hdfs as ODALHdfs};
 
 /// Options used for configuring backend storage
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -109,7 +113,7 @@ pub(crate) enum ObjectStoreImpl {
     #[cfg(feature = "azure")]
     Azure(MicrosoftAzure),
     #[cfg(feature = "hdfs")]
-    Hdfs(HadoopFileSystem),
+    Hdfs(OpendalStore),
 }
 
 impl ObjectStoreImpl {
@@ -239,13 +243,16 @@ impl ObjectStoreKind {
             }),
             #[cfg(feature = "hdfs")]
             ObjectStoreKind::Hdfs => {
-                let store = HadoopFileSystem::new(storage_url.as_ref()).ok_or_else(|| {
-                    DeltaTableError::Generic(format!(
-                        "failed to create HadoopFileSystem for {}",
-                        storage_url.as_ref()
-                    ))
-                })?;
-                Ok(ObjectStoreImpl::Hdfs(store))
+                let mut builder = opendal::services::Hdfs::default();
+                builder.name_node(storage_url.as_ref());
+                builder.root("/");
+                match Operator::new(builder) {
+                    Ok(hdfs) => Ok(ODALHdfs(OpendalStore::new(hdfs.finish()))),
+                    Err(e) => Err(DeltaTableError::Generic(format!(
+                        "Failed to create hdfs operator: {}",
+                        e
+                    ))),
+                }
             }
             #[cfg(not(feature = "hdfs"))]
             ObjectStoreKind::Hdfs => Err(DeltaTableError::MissingFeature {

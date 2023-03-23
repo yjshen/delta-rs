@@ -52,6 +52,7 @@ impl IntegrationContext {
             StorageIntegration::Microsoft => format!("az://{}", &bucket),
             StorageIntegration::Google => format!("gs://{}", &bucket),
             StorageIntegration::Local => format!("file://{}", &bucket),
+            StorageIntegration::Hdfs => format!("hdfs://{}", &bucket),
         };
         // the "storage_backend" will always point to the root ofg the object store.
         // TODO should we provide the store via object_Store builders?
@@ -85,6 +86,7 @@ impl IntegrationContext {
             StorageIntegration::Microsoft => format!("az://{}", &self.bucket),
             StorageIntegration::Google => format!("gs://{}", &self.bucket),
             StorageIntegration::Local => format!("file://{}", &self.bucket),
+            StorageIntegration::Hdfs => format!("hdfs://{}", &self.bucket),
         }
     }
 
@@ -140,6 +142,7 @@ impl Drop for IntegrationContext {
                 gs_cli::delete_bucket(&self.bucket).unwrap();
             }
             StorageIntegration::Local => (),
+            StorageIntegration::Hdfs => (),
         };
     }
 }
@@ -150,6 +153,7 @@ pub enum StorageIntegration {
     Microsoft,
     Google,
     Local,
+    Hdfs,
 }
 
 impl StorageIntegration {
@@ -159,6 +163,7 @@ impl StorageIntegration {
             Self::Amazon => s3_cli::prepare_env(),
             Self::Google => gs_cli::prepare_env(),
             Self::Local => (),
+            Self::Hdfs => (),
         }
     }
 
@@ -182,6 +187,7 @@ impl StorageIntegration {
                 Ok(())
             }
             Self::Local => Ok(()),
+            Self::Hdfs => Ok(()),
         }
     }
 }
