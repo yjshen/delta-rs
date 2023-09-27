@@ -7,12 +7,6 @@ resolver = "2"
 inherits = "release"
 debug = true
 
-# Reducing the debuginfo for the test profile in order to trim the disk and RAM
-# usage during development
-# <https://github.com/delta-io/delta-rs/issues/1550?
-[profile.test]
-debug = "line-tables-only"
-
 [workspace.dependencies]
 # arrow
 arrow = { version = "46" }
