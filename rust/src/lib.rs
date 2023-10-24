@@ -68,7 +68,6 @@
 //! };
 //! ```
 
-#![deny(warnings)]
 #![deny(missing_docs)]
 #![allow(rustdoc::invalid_html_tags)]
 
