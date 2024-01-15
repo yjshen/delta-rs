@@ -186,7 +186,7 @@ macro_rules! table_config {
 }
 
 /// Well known delta table configuration
-pub struct TableConfig<'a>(pub(crate) &'a HashMap<String, Option<String>>);
+pub struct TableConfig<'a>(pub &'a HashMap<String, Option<String>>);
 
 impl<'a> TableConfig<'a> {
     table_config!(
