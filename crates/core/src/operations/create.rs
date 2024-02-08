@@ -55,6 +55,7 @@ pub struct CreateBuilder {
     actions: Vec<Action>,
     log_store: Option<LogStoreRef>,
     configuration: HashMap<String, Option<String>>,
+    partition_by: Option<Vec<String>>,
     metadata: Option<HashMap<String, Value>>,
 }
 
@@ -78,6 +79,7 @@ impl CreateBuilder {
             actions: Default::default(),
             log_store: None,
             configuration: Default::default(),
+            partition_by: None,
             metadata: Default::default(),
         }
     }
@@ -162,6 +164,15 @@ impl CreateBuilder {
             .into_iter()
             .map(|(k, v)| (k.into(), v.map(|s| s.into())))
             .collect();
+        self
+    }
+
+    /// Specify partitionBy operation parameter in commit info
+    pub fn with_operation_parameter_partition_by(
+        mut self,
+        partition_by: Option<Vec<String>>,
+    ) -> Self {
+        self.partition_by = partition_by;
         self
     }
 
@@ -268,6 +279,7 @@ impl CreateBuilder {
             metadata: metadata.clone(),
             location: storage_url,
             protocol: protocol.clone(),
+            partition_by: self.partition_by.clone(),
         };
 
         let mut actions = vec![Action::Protocol(protocol), Action::Metadata(metadata)];
