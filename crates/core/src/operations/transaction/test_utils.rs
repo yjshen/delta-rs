@@ -160,6 +160,7 @@ pub async fn create_initialized_table(
             configuration: configuration.unwrap_or_default(),
             created_time: Some(chrono::Utc::now().timestamp_millis()),
         },
+        partition_by: None,
     };
     let actions = init_table_actions(None);
     CommitBuilder::default()

@@ -82,6 +82,7 @@ impl DeltaTableState {
                 location: Path::default().to_string(),
                 protocol: protocol.clone(),
                 metadata: metadata.clone(),
+                partition_by: None,
             },
             HashMap::new(),
         )

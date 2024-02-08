@@ -69,3 +69,7 @@ async-trait = { version = "0.1" }
 futures = { version = "0.3" }
 tokio = { version = "1" }
 num_cpus = { version = "1" }
+
+[patch.crates-io]
+# rename_overwrite branch
+fs-hdfs3 = { git = "https://github.com/datafusion-contrib/fs-hdfs.git", rev = "c85703bdcc44833a214aba1f091301c789156d24" }

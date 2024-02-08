@@ -296,6 +296,10 @@ pub async fn get_actions(
         })?;
         actions.push(action);
     }
+    if actions.len() == 0 {
+        debug!("parsed commit with version {version}...with zero actions");
+    }
+
     Ok(actions)
 }
 

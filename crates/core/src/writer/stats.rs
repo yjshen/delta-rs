@@ -1,3 +1,5 @@
+//! Utilities for working add actions' stats.
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, ops::AddAssign};
@@ -62,6 +64,18 @@ fn stats_from_file_metadata(
     partition_values: &IndexMap<String, Scalar>,
     file_metadata: &FileMetaData,
 ) -> Result<Stats, DeltaWriterError> {
+    let partitions_keys: HashSet<String> = partition_values.keys().cloned().collect();
+    gen_stats_from_file_metadata(&partitions_keys, file_metadata)
+}
+
+/// Generate stats from parquet file metadata
+///
+/// Extracted from the above `stats_from_file_metadata`,
+/// with a more general partition_keys parameter. (since the partition value is not used)
+pub fn gen_stats_from_file_metadata(
+    partitions_keys: &HashSet<String>,
+    file_metadata: &FileMetaData,
+) -> Result<Stats, DeltaWriterError> {
     let type_ptr = parquet::schema::types::from_thrift(file_metadata.schema.as_slice());
     let schema_descriptor = type_ptr.map(|type_| Arc::new(SchemaDescriptor::new(type_)))?;
 
@@ -83,7 +97,7 @@ fn stats_from_file_metadata(
         let column_path_parts = column_path.parts();
 
         // Do not include partition columns in statistics
-        if partition_values.contains_key(&column_path_parts[0]) {
+        if partitions_keys.contains(&column_path_parts[0]) {
             continue;
         }
 

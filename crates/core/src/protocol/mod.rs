@@ -338,6 +338,8 @@ pub enum DeltaOperation {
         protocol: Protocol,
         /// Metadata associated with the new table
         metadata: Metadata,
+        /// The columns the table is partitioned by.
+        partition_by: Option<Vec<String>>,
     },
 
     /// Represents a Delta `Write` operation.
@@ -473,30 +475,49 @@ impl DeltaOperation {
 
     /// Parameters configured for operation.
     pub fn operation_parameters(&self) -> DeltaResult<HashMap<String, Value>> {
-        if let Some(Some(Some(map))) = serde_json::to_value(self)
-            .map_err(|err| ProtocolError::SerializeOperation { source: err })?
-            .as_object()
-            .map(|p| p.values().next().map(|q| q.as_object()))
-        {
-            Ok(map
-                .iter()
-                .filter(|item| !item.1.is_null())
-                .map(|(k, v)| {
-                    (
-                        k.to_owned(),
-                        serde_json::Value::String(if v.is_string() {
-                            String::from(v.as_str().unwrap())
-                        } else {
-                            v.to_string()
-                        }),
+        match &self {
+            // Special case for create, as it's parameters are different from Create Operation struct
+            DeltaOperation::Create { partition_by, .. } => {
+                // Only include partitionBy if it's not None
+                let mut map = HashMap::new();
+                if let Some(partition_by) = partition_by {
+                    let partition_by_str = partition_by
+                        .iter()
+                        .map(|s| format!("\"{}\"", s))
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    let partition_by_json = format!("[{}]", partition_by_str);
+                    map.insert("partitionBy".into(), Value::String(partition_by_json));
+                }
+                Ok(map)
+            }
+            _ => {
+                if let Some(Some(Some(map))) = serde_json::to_value(self)
+                    .map_err(|err| ProtocolError::SerializeOperation { source: err })?
+                    .as_object()
+                    .map(|p| p.values().next().map(|q| q.as_object()))
+                {
+                    Ok(map
+                        .iter()
+                        .filter(|item| !item.1.is_null())
+                        .map(|(k, v)| {
+                            (
+                                k.to_owned(),
+                                serde_json::Value::String(if v.is_string() {
+                                    String::from(v.as_str().unwrap())
+                                } else {
+                                    v.to_string()
+                                }),
+                            )
+                        })
+                        .collect())
+                } else {
+                    Err(ProtocolError::Generic(
+                        "Operation parameters serialized into unexpected shape".into(),
                     )
-                })
-                .collect())
-        } else {
-            Err(ProtocolError::Generic(
-                "Operation parameters serialized into unexpected shape".into(),
-            )
-            .into())
+                    .into())
+                }
+            }
         }
     }
 

@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::iter::Iterator;
+use uuid::Uuid;
 
 use arrow_json::ReaderBuilder;
 use arrow_schema::ArrowError;
@@ -16,7 +17,7 @@ use parquet::errors::ParquetError;
 use parquet::file::properties::WriterProperties;
 use regex::Regex;
 use serde_json::Value;
-use tracing::{debug, error};
+use tracing::{debug, error, info, warn};
 
 use super::{time_utils, ProtocolError};
 use crate::kernel::arrow::delta_log_schema_for_table;
@@ -69,7 +70,10 @@ impl From<CheckpointError> for ProtocolError {
     }
 }
 
+use crate::storage::ObjectStoreRetryExt;
 use core::str::Utf8Error;
+use object_store::path::Path;
+
 impl From<Utf8Error> for ProtocolError {
     fn from(value: Utf8Error) -> Self {
         Self::Generic(value.to_string())
@@ -151,6 +155,7 @@ pub async fn create_checkpoint_for(
     // an appropriate split point yet though so only writing a single part currently.
     // See https://github.com/delta-io/delta-rs/issues/288
     let last_checkpoint_path = log_store.log_path().child("_last_checkpoint");
+    let temp_last_checkpoint_path = log_store.log_path().child("_temp_last_checkpoint");
 
     debug!("Writing parquet bytes to checkpoint buffer.");
     let tombstones = state
@@ -160,22 +165,88 @@ pub async fn create_checkpoint_for(
         .collect::<Vec<_>>();
     let (checkpoint, parquet_bytes) = parquet_bytes_from_state(state, tombstones)?;
 
-    let file_name = format!("{version:020}.checkpoint.parquet");
-    let checkpoint_path = log_store.log_path().child(file_name);
+    // @TODO change object store interface to provide use_rename value,
+    // for our case Blob & HDFS both needs rename
+    let use_rename = true;
+
+    let final_path = format!("{version:020}.checkpoint.parquet");
+    let final_checkpoint_path = log_store.log_path().child(final_path.clone());
+
+    let temp_path = if use_rename {
+        let id = Uuid::new_v4();
+        format!(".{final_path}.{id}.tmp")
+    } else {
+        final_path
+    };
+    let temp_checkpoint_path = log_store.log_path().child(temp_path);
 
     let object_store = log_store.object_store();
-    debug!("Writing checkpoint to {:?}.", checkpoint_path);
-    object_store.put(&checkpoint_path, parquet_bytes).await?;
+
+    debug!("Writing temp checkpoint to {:?}.", temp_checkpoint_path);
+    object_store
+        .put(&temp_checkpoint_path, parquet_bytes)
+        .await?;
+
+    debug!("Renaming temp checkpoint to {:?}.", final_checkpoint_path);
+    rename_and_cleanup_checkpoint_file(log_store, &temp_checkpoint_path, &final_checkpoint_path)
+        .await;
 
     let last_checkpoint_content: Value = serde_json::to_value(checkpoint)?;
     let last_checkpoint_content = bytes::Bytes::from(serde_json::to_vec(&last_checkpoint_content)?);
 
-    debug!("Writing _last_checkpoint to {:?}.", last_checkpoint_path);
+    debug!(
+        "Writing _temp_last_checkpoint to {:?}.",
+        temp_last_checkpoint_path
+    );
     object_store
-        .put(&last_checkpoint_path, last_checkpoint_content)
+        .put(&temp_last_checkpoint_path, last_checkpoint_content)
         .await?;
-
+    object_store
+        .rename(&temp_last_checkpoint_path, &last_checkpoint_path)
+        .await?;
     Ok(())
+}
+
+async fn rename_and_cleanup_checkpoint_file(
+    log_store: &dyn LogStore,
+    temp_path: &Path,
+    final_path: &Path,
+) {
+    // If rename fails because the final path already exists, it's ok -- some zombie
+    // task probably got there first.
+    // We rely on the fact that all checkpoint writers write the same content to any given
+    // checkpoint part file. So it shouldn't matter which writer wins the race.
+    let object_store = log_store.object_store();
+    let result = object_store
+        .rename_if_not_exists(temp_path, final_path)
+        .await;
+    let rename_successful = match result {
+        Ok(_) => true,
+        Err(e) => {
+            // Handle other errors
+            warn!("Error occurred during renaming: {:?}", e);
+            false
+        }
+    };
+
+    if !rename_successful {
+        let result = object_store.delete_with_retries(final_path, 2).await;
+        match result {
+            Ok(_) => {
+                info!(
+                    "Error occurred while deleting the temporary checkpoint part file: {:?}",
+                    final_path
+                );
+            }
+            Err(e) => {
+                // Handle error while deleting temporary file
+                warn!(
+                    "Error occurred while deleting the temporary checkpoint part file: {:?}",
+                    e
+                );
+            }
+        };
+    }
 }
 
 /// Deletes all delta log commits that are older than the cutoff time
