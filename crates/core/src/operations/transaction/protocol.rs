@@ -111,14 +111,14 @@ impl ProtocolChecker {
                 _ => snapshot.protocol().writer_features.as_ref(),
             };
 
-        if let Some(features) = required_features {
-            let mut diff = features.difference(&self.writer_features).peekable();
-            if diff.peek().is_some() {
-                return Err(TransactionError::UnsupportedWriterFeatures(
-                    diff.cloned().collect(),
-                ));
-            }
-        };
+        // if let Some(features) = required_features {
+        //     let mut diff = features.difference(&self.writer_features).peekable();
+        //     if diff.peek().is_some() {
+        //         return Err(TransactionError::UnsupportedWriterFeatures(
+        //             diff.cloned().collect(),
+        //         ));
+        //     }
+        // };
         Ok(())
     }
 
