@@ -373,6 +373,12 @@ pub enum DeltaOperation {
         expr: String,
     },
 
+    /// Drops constraints from a table
+    DropConstraint {
+        /// Constraints name
+        name: String,
+    },
+
     /// Merge data with a source data with the following predicate
     #[serde(rename_all = "camelCase")]
     Merge {
@@ -460,6 +466,7 @@ impl DeltaOperation {
             DeltaOperation::VacuumStart { .. } => "VACUUM START",
             DeltaOperation::VacuumEnd { .. } => "VACUUM END",
             DeltaOperation::AddConstraint { .. } => "ADD CONSTRAINT",
+            DeltaOperation::DropConstraint { .. } => "DROP CONSTRAINT",
         }
     }
 
@@ -515,7 +522,8 @@ impl DeltaOperation {
             Self::Optimize { .. }
             | Self::VacuumStart { .. }
             | Self::VacuumEnd { .. }
-            | Self::AddConstraint { .. } => false,
+            | Self::AddConstraint { .. }
+            | Self::DropConstraint { .. } => false,
             Self::Create { .. }
             | Self::FileSystemCheck {}
             | Self::StreamingUpdate { .. }
@@ -1317,15 +1325,21 @@ mod tests {
                 ),
                 (
                     "min.timestamp",
-                    Arc::new(array::TimestampMicrosecondArray::from(vec![
-                        TimestampMicrosecondType::parse("2022-10-24T22:59:32.846Z"),
-                    ])),
+                    Arc::new(
+                        array::TimestampMicrosecondArray::from(vec![
+                            TimestampMicrosecondType::parse("2022-10-24T22:59:32.846Z"),
+                        ])
+                        .with_timezone("UTC"),
+                    ),
                 ),
                 (
                     "max.timestamp",
-                    Arc::new(array::TimestampMicrosecondArray::from(vec![
-                        TimestampMicrosecondType::parse("2022-10-24T22:59:32.846Z"),
-                    ])),
+                    Arc::new(
+                        array::TimestampMicrosecondArray::from(vec![
+                            TimestampMicrosecondType::parse("2022-10-24T22:59:32.846Z"),
+                        ])
+                        .with_timezone("UTC"),
+                    ),
                 ),
                 (
                     "null_count.struct.struct_element",
