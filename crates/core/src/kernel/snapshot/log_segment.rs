@@ -457,8 +457,18 @@ async fn list_log_files_with_checkpoint(
         })
         .collect_vec();
 
-    // TODO raise a proper error
-    assert_eq!(checkpoint_files.len(), cp.parts.unwrap_or(1) as usize);
+    let parts = cp.parts.unwrap_or(1) as usize;
+    if checkpoint_files.len() != parts {
+        return Err(DeltaTableError::Generic(format!(
+            "expected {} checkpoint files for {}, found {}",
+            parts,
+            cp.version,
+            checkpoint_files
+                .iter()
+                .map(|f| f.location.to_string())
+                .join(", ")
+        )));
+    }
 
     Ok((commit_files, checkpoint_files))
 }
