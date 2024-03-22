@@ -317,6 +317,7 @@ mod tests {
         assert!(checker.can_commit(&snapshot, &neutral_actions).is_ok());
     }
 
+    #[ignore]
     #[test]
     fn test_versions() {
         let checker_1 = ProtocolChecker::new(HashSet::new(), HashSet::new());

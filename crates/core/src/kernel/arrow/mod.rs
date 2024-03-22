@@ -685,7 +685,9 @@ mod tests {
         }
         let stats_parsed = add_field_map.get("stats_parsed").unwrap();
         if let ArrowDataType::Struct(fields) = stats_parsed.data_type() {
-            assert_eq!(4, fields.len());
+            // assert_eq!(4, fields.len());
+            // we disable min/max values in SxT for now so only numRecords and nullCount are present
+            assert_eq!(2, fields.len());
 
             let field_map: HashMap<_, _> = fields
                 .iter()
