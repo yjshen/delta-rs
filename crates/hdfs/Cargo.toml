@@ -14,7 +14,7 @@ rust-version.workspace = true
 [dependencies]
 deltalake-core = { version = "0.17.0", path = "../core" }
 lazy_static = "1"
-datafusion-objectstore-hdfs = { git = "https://github.com/spaceandtimelabs/datafusion-objectstore-hdfs.git", branch = "master" }
+datafusion-objectstore-hdfs = { git = "https://github.com/spaceandtimelabs/datafusion-objectstore-hdfs.git", branch = "rename_atomic" }
 
 # workspace depenndecies
 async-trait = { workspace = true }
