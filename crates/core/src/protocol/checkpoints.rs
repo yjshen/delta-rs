@@ -189,7 +189,7 @@ pub async fn create_checkpoint_for(
 
     debug!("Renaming temp checkpoint to {:?}.", final_checkpoint_path);
     rename_and_cleanup_checkpoint_file(log_store, &temp_checkpoint_path, &final_checkpoint_path)
-        .await;
+        .await?;
 
     let last_checkpoint_content: Value = serde_json::to_value(checkpoint)?;
     let last_checkpoint_content = bytes::Bytes::from(serde_json::to_vec(&last_checkpoint_content)?);
@@ -211,7 +211,7 @@ async fn rename_and_cleanup_checkpoint_file(
     log_store: &dyn LogStore,
     temp_path: &Path,
     final_path: &Path,
-) {
+) -> Result<(), object_store::Error> {
     // If rename fails because the final path already exists, it's ok -- some zombie
     // task probably got there first.
     // We rely on the fact that all checkpoint writers write the same content to any given
@@ -222,7 +222,7 @@ async fn rename_and_cleanup_checkpoint_file(
         .await;
     let rename_successful = match result {
         Ok(_) => true,
-        Err(e) => {
+        Err(ref e) => {
             // Handle other errors
             warn!("Error occurred during renaming: {:?}", e);
             false
@@ -247,6 +247,7 @@ async fn rename_and_cleanup_checkpoint_file(
             }
         };
     }
+    result
 }
 
 /// Deletes all delta log commits that are older than the cutoff time
