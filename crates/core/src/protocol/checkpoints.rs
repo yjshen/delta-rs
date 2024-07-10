@@ -417,6 +417,7 @@ fn parquet_bytes_from_state(
     )?;
     let mut decoder = ReaderBuilder::new(arrow_schema)
         .with_batch_size(CHECKPOINT_RECORD_BATCH_SIZE)
+        .with_coerce_primitive(true)
         .build_decoder()?;
     let jsons = jsons.collect::<Result<Vec<serde_json::Value>, _>>()?;
     decoder.serialize(&jsons)?;

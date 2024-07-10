@@ -25,6 +25,7 @@ pub(crate) fn get_decoder(
 ) -> DeltaResult<Decoder> {
     Ok(ReaderBuilder::new(schema)
         .with_batch_size(config.log_batch_size)
+        .with_coerce_primitive(true)
         .build_decoder()?)
 }
 
@@ -52,6 +53,7 @@ pub(crate) fn parse_json(
 ) -> DeltaResult<RecordBatch> {
     let mut decoder = ReaderBuilder::new(output_schema.clone())
         .with_batch_size(config.log_batch_size)
+        .with_coerce_primitive(true)
         .build_decoder()?;
     let mut batches = Vec::new();
 

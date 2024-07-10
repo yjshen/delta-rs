@@ -542,6 +542,7 @@ mod tests {
         // Using a batch size of two since the buf above only has two records
         let mut decoder = ReaderBuilder::new(Arc::new(schema))
             .with_batch_size(2)
+            .with_coerce_primitive(true)
             .build_decoder()
             .expect("Failed to build decoder");
 
